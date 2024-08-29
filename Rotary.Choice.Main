@@ -90,13 +90,13 @@ void loop() {
   if (clkState != lastClkState) {
     if (dtState != clkState) {
       if (inSubmenu) {
-        submenuIndex = (submenuIndex + 1) % 5; // 4 options + "Back"
+        submenuIndex = (submenuIndex + 1) % getSubmenuSize(); // Adjust submenu size dynamically
       } else {
         menuIndex = (menuIndex + 1) % 4;
       }
     } else {
       if (inSubmenu) {
-        submenuIndex = (submenuIndex - 1 + 5) % 5; // 4 options + "Back"
+        submenuIndex = (submenuIndex - 1 + getSubmenuSize()) % getSubmenuSize(); // Adjust submenu size dynamically
       } else {
         menuIndex = (menuIndex - 1 + 4) % 4;
       }
@@ -111,7 +111,7 @@ void loop() {
       if (submenuIndex == 0) {
         inSubmenu = false;
       } else {
-        // Handle submenu selection
+        handleSubmenuSelection(submenuIndex);
       }
     } else {
       inSubmenu = true;
@@ -162,20 +162,7 @@ void displayMenu() {
   display.setCursor(0, 0);
   
   if (inSubmenu) {
-    display.println("Submenu:");
-    for (int i = 0; i < 5; i++) {
-      if (i == submenuIndex) {
-        display.print("> ");
-      } else {
-        display.print("  ");
-      }
-      if (i == 0) {
-        display.println("Back");
-      } else {
-        display.print("Option ");
-        display.println(i);
-      }
-    }
+    displaySubmenu();
   } else {
     display.println("Welcome to Caged Monsters!");
     display.setCursor(0, 16);
@@ -191,4 +178,102 @@ void displayMenu() {
   }
   
   display.display();
+}
+
+void displaySubmenu() {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  
+  const char* submenuOptions[5];
+  int submenuSize = 0;
+  
+  switch (menuIndex) {
+    case 0: // Battle!
+      submenuOptions[0] = "Back";
+      submenuOptions[1] = "Connect to Battleground";
+      submenuSize = 2;
+      break;
+    case 1: // Inventory
+      submenuOptions[0] = "Back";
+      submenuOptions[1] = "Inventory List";
+      submenuSize = 2;
+      break;
+    case 2: // Your Team
+      submenuOptions[0] = "Back";
+      submenuOptions[1] = "View Your Team";
+      submenuOptions[2] = "Change Team Loadout";
+      submenuSize = 3;
+      break;
+    case 3: // View Your Monsters
+      submenuOptions[0] = "Back";
+      for (int i = 0; i < sizeof(monsters) / sizeof(monsters[0]); i++) {
+        submenuOptions[i + 1] = monsters[i].name;
+      }
+      submenuSize = sizeof(monsters) / sizeof(monsters[0]) + 1;
+      break;
+  }
+  
+  for (int i = 0; i < submenuSize; i++) {
+    if (i == submenuIndex) {
+      display.print("> ");
+    } else {
+      display.print("  ");
+    }
+    display.println(submenuOptions[i]);
+  }
+  
+  display.display();
+}
+
+int getSubmenuSize() {
+  switch (menuIndex) {
+    case 0: return 2; // Battle!
+    case 1: return 2; // Inventory
+    case 2: return 3; // Your Team
+    case 3: return sizeof(monsters) / sizeof(monsters[0]) + 1; // View Your Monsters
+    default: return 0;
+  }
+}
+
+void handleSubmenuSelection(int index) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  
+  switch (menuIndex) {
+    case 0: // Battle!
+      if (index == 1) {
+        display.println("Connecting to Battleground...");
+        // Add battle connection functionality here
+      }
+      break;
+    case 1: // Inventory
+      if (index == 1) {
+        display.println("Inventory List");
+        // Add inventory list functionality here
+      }
+      break;
+    case 2: // Your Team
+      if (index == 1) {
+        display.println("Viewing Your Team");
+        // Add view team functionality here
+      } else if (index == 2) {
+        display.println("Changing Team Loadout");
+        // Add change team loadout functionality here
+      }
+      break;
+    case 3: // View Your Monsters
+      if (index > 0) {
+        display.println(monsters[index - 1].name);
+        // Add view monster functionality here
+      }
+      break;
+  }
+  
+  display.display();
+  delay(2000); // Display the selected option for 2 seconds
+  inSubmenu = false; // Return to the main menu
 }
