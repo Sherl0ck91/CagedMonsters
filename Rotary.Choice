@@ -1,0 +1,193 @@
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <SoftwareSerial.h>
+#include <EEPROM.h>
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+SoftwareSerial BTSerial(10, 11); // RX, TX
+
+const int barcodeLength = 13; // Adjust based on your barcode length
+char scannedBarcodes[10][barcodeLength]; // Store up to 10 barcodes
+
+// Monster bitmap stored in flash memory
+const unsigned char PROGMEM monsterBitmap[] = {
+  0x00, 0x3C, 0x42, 0x81, 0xA5, 0x81, 0x81, 0xBD, 
+  0x81, 0x81, 0xA5, 0x81, 0x42, 0x3C, 0x00, 0x00
+};
+
+// Monster stats structure
+struct Monster {
+  const char* name;
+  int health;
+  int attack;
+  int defense;
+};
+
+// Define monsters
+Monster monsters[] = {
+  {"Monster1", 100, 20, 10},
+  {"Monster2", 120, 25, 15},
+  // Add more monsters as needed
+};
+
+// Rotary encoder pins
+#define CLK_PIN 2
+#define DT_PIN 3
+#define SW_PIN 8
+
+int menuIndex = 0;
+int submenuIndex = 0;
+bool inSubmenu = false;
+bool selectPressed = false;
+int lastClkState;
+
+void setup() {
+  Serial.begin(9600);
+  BTSerial.begin(9600);
+  
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    for(;;);
+  }
+  display.display();
+  delay(2000);
+  display.clearDisplay();
+  
+  pinMode(CLK_PIN, INPUT);
+  pinMode(DT_PIN, INPUT);
+  pinMode(SW_PIN, INPUT_PULLUP);
+  
+  lastClkState = digitalRead(CLK_PIN);
+  
+  // Load scanned barcodes from EEPROM
+  for (int i = 0; i < 10; i++) {
+    for (int j = 0; j < barcodeLength; j++) {
+      scannedBarcodes[i][j] = EEPROM.read(i * barcodeLength + j);
+    }
+  }
+}
+
+void loop() {
+  if (BTSerial.available()) {
+    String barcode = BTSerial.readString();
+    if (!isBarcodeScanned(barcode)) {
+      unlockMonster(barcode);
+      saveBarcode(barcode);
+    } else {
+      Serial.println("Barcode already used.");
+    }
+  }
+  
+  int clkState = digitalRead(CLK_PIN);
+  int dtState = digitalRead(DT_PIN);
+  bool buttonPressed = digitalRead(SW_PIN) == LOW;
+  
+  if (clkState != lastClkState) {
+    if (dtState != clkState) {
+      if (inSubmenu) {
+        submenuIndex = (submenuIndex + 1) % 5; // 4 options + "Back"
+      } else {
+        menuIndex = (menuIndex + 1) % 4;
+      }
+    } else {
+      if (inSubmenu) {
+        submenuIndex = (submenuIndex - 1 + 5) % 5; // 4 options + "Back"
+      } else {
+        menuIndex = (menuIndex - 1 + 4) % 4;
+      }
+    }
+    delay(200);
+  }
+  lastClkState = clkState;
+  
+  if (buttonPressed && !selectPressed) {
+    selectPressed = true;
+    if (inSubmenu) {
+      if (submenuIndex == 0) {
+        inSubmenu = false;
+      } else {
+        // Handle submenu selection
+      }
+    } else {
+      inSubmenu = true;
+      submenuIndex = 0;
+    }
+  } else if (!buttonPressed) {
+    selectPressed = false;
+  }
+  
+  displayMenu();
+}
+
+bool isBarcodeScanned(String barcode) {
+  for (int i = 0; i < 10; i++) {
+    if (barcode.equals(scannedBarcodes[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void unlockMonster(String barcode) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  display.println("Monster Unlocked!");
+  display.drawBitmap(0, 16, monsterBitmap, 16, 16, SSD1306_WHITE);
+  display.display();
+}
+
+void saveBarcode(String barcode) {
+  for (int i = 0; i < 10; i++) {
+    if (scannedBarcodes[i][0] == '\0') {
+      barcode.toCharArray(scannedBarcodes[i], barcodeLength);
+      for (int j = 0; j < barcodeLength; j++) {
+        EEPROM.write(i * barcodeLength + j, scannedBarcodes[i][j]);
+      }
+      break;
+    }
+  }
+}
+
+void displayMenu() {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  
+  if (inSubmenu) {
+    display.println("Submenu:");
+    for (int i = 0; i < 5; i++) {
+      if (i == submenuIndex) {
+        display.print("> ");
+      } else {
+        display.print("  ");
+      }
+      if (i == 0) {
+        display.println("Back");
+      } else {
+        display.print("Option ");
+        display.println(i);
+      }
+    }
+  } else {
+    display.println("Main Menu:");
+    for (int i = 0; i < 4; i++) {
+      if (i == menuIndex) {
+        display.print("> ");
+      } else {
+        display.print("  ");
+      }
+      display.print("Option ");
+      display.println(i + 1);
+    }
+  }
+  
+  display.display();
+}
