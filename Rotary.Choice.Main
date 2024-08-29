@@ -177,15 +177,16 @@ void displayMenu() {
       }
     }
   } else {
-    display.println("Main Menu:");
+    display.println("Welcome to Caged Monsters!");
+    display.setCursor(0, 16);
+    const char* mainMenuOptions[] = {"Battle!", "Inventory", "Your Team", "View Your Monsters"};
     for (int i = 0; i < 4; i++) {
       if (i == menuIndex) {
         display.print("> ");
       } else {
         display.print("  ");
       }
-      display.print("Option ");
-      display.println(i + 1);
+      display.println(mainMenuOptions[i]);
     }
   }
   
