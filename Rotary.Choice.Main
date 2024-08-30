@@ -48,7 +48,7 @@ int lastClkState;
 
 Monster favoriteMonsters[10];
 int favoriteCount = 0;
-
+bool welcomeDisplayed = false; // New flag to control welcome message
 
 void setup() {
   Serial.begin(9600);
@@ -96,13 +96,13 @@ void loop() {
       if (inSubmenu) {
         submenuIndex = (submenuIndex + 1) % getSubmenuSize(); // Adjust submenu size dynamically
       } else {
-        menuIndex = (menuIndex + 1) % 4;
+        menuIndex = (menuIndex + 1) % 5; // Updated to 5 to include "Favorite Monsters"
       }
     } else {
       if (inSubmenu) {
         submenuIndex = (submenuIndex - 1 + getSubmenuSize()) % getSubmenuSize(); // Adjust submenu size dynamically
       } else {
-        menuIndex = (menuIndex - 1 + 4) % 4;
+        menuIndex = (menuIndex - 1 + 5) % 5; // Updated to 5 to include "Favorite Monsters"
       }
     }
     delay(200);
@@ -127,8 +127,6 @@ void loop() {
   
   displayMenu();
 }
-
-
 
 bool isBarcodeScanned(String barcode) {
   for (int i = 0; i < 10; i++) {
@@ -167,13 +165,17 @@ void displayMenu() {
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
   
+  if (!welcomeDisplayed) {
+    scrollText("Welcome to Caged Monsters!");
+    welcomeDisplayed = true;
+  }
+  
   if (inSubmenu) {
     displaySubmenu();
   } else {
-    display.println("Welcome to Caged Monsters!");
     display.setCursor(0, 16);
-    const char* mainMenuOptions[] = {"Battle!", "Inventory", "Your Team", "View Your Monsters"};
-    for (int i = 0; i < 4; i++) {
+    const char* mainMenuOptions[] = {"Battle!", "Inventory", "Your Team", "View Your Monsters", "Favorite Monsters"};
+    for (int i = 0; i < 5; i++) {
       if (i == menuIndex) {
         display.print("> ");
       } else {
@@ -219,6 +221,13 @@ void displaySubmenu() {
       }
       submenuSize = sizeof(monsters) / sizeof(monsters[0]) + 1;
       break;
+    case 4: // Favorite Monsters
+      submenuOptions[0] = "Back";
+      for (int i = 0; i < favoriteCount; i++) {
+        submenuOptions[i + 1] = favoriteMonsters[i].name;
+      }
+      submenuSize = favoriteCount + 1;
+      break;
   }
   
   for (int i = 0; i < submenuSize; i++) {
@@ -247,6 +256,7 @@ int getSubmenuSize() {
     case 1: return 2; // Inventory
     case 2: return 3; // Your Team
     case 3: return sizeof(monsters) / sizeof(monsters[0]) + 1; // View Your Monsters
+    case 4: return favoriteCount + 1; // Favorite Monsters
     default: return 0;
   }
 }
@@ -264,6 +274,8 @@ void handleSubmenuSelection(int index) {
         setFree(index - 1);
       }
     }
+  } else if (menuIndex == 4 && index > 0) {
+    displayMonsterDetails(index - 1);
   } else {
     // Existing submenu handling code
   }
@@ -304,8 +316,6 @@ bool confirmAction(const char* action) {
   
   display.display();
   
-  // Wait for user input (implement your own input handling here)
-  // Return true if "Yes" is selected, false otherwise
   int userInput = getUserInput();
   return (userInput == 1);
 }
