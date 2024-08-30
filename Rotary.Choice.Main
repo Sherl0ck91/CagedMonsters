@@ -46,6 +46,10 @@ bool inSubmenu = false;
 bool selectPressed = false;
 int lastClkState;
 
+Monster favoriteMonsters[10];
+int favoriteCount = 0;
+
+
 void setup() {
   Serial.begin(9600);
   BTSerial.begin(9600);
@@ -123,6 +127,8 @@ void loop() {
   
   displayMenu();
 }
+
+
 
 bool isBarcodeScanned(String barcode) {
   for (int i = 0; i < 10; i++) {
@@ -222,6 +228,14 @@ void displaySubmenu() {
       display.print("  ");
     }
     display.println(submenuOptions[i]);
+    if (menuIndex == 3 && i > 0) {
+      display.print("  HP: ");
+      display.print(monsters[i - 1].health);
+      display.print(" ATK: ");
+      display.print(monsters[i - 1].attack);
+      display.print(" DEF: ");
+      display.println(monsters[i - 1].defense);
+    }
   }
   
   display.display();
@@ -238,42 +252,129 @@ int getSubmenuSize() {
 }
 
 void handleSubmenuSelection(int index) {
+  if (menuIndex == 3 && index > 0) {
+    displayMonsterDetails(index - 1);
+    int userInput = getUserInput();
+    if (userInput == 1) {
+      if (confirmAction("Add to Favorites")) {
+        addToFavorites(index - 1);
+      }
+    } else if (userInput == 2) {
+      if (confirmAction("Set Free")) {
+        setFree(index - 1);
+      }
+    }
+  } else {
+    // Existing submenu handling code
+  }
+}
+
+void displayMonsterDetails(int monsterIndex) {
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
   
-  switch (menuIndex) {
-    case 0: // Battle!
-      if (index == 1) {
-        display.println("Connecting to Battleground...");
-        // Add battle connection functionality here
-      }
-      break;
-    case 1: // Inventory
-      if (index == 1) {
-        display.println("Inventory List");
-        // Add inventory list functionality here
-      }
-      break;
-    case 2: // Your Team
-      if (index == 1) {
-        display.println("Viewing Your Team");
-        // Add view team functionality here
-      } else if (index == 2) {
-        display.println("Changing Team Loadout");
-        // Add change team loadout functionality here
-      }
-      break;
-    case 3: // View Your Monsters
-      if (index > 0) {
-        display.println(monsters[index - 1].name);
-        // Add view monster functionality here
-      }
-      break;
-  }
+  display.println(monsters[monsterIndex].name);
+  display.print("HP: ");
+  display.println(monsters[monsterIndex].health);
+  display.print("ATK: ");
+  display.println(monsters[monsterIndex].attack);
+  display.print("DEF: ");
+  display.println(monsters[monsterIndex].defense);
+  
+  display.setCursor(0, 32);
+  display.println("1. Add to Favorites");
+  display.println("2. Set Free");
   
   display.display();
-  delay(2000); // Display the selected option for 2 seconds
-  inSubmenu = false; // Return to the main menu
+}
+
+bool confirmAction(const char* action) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  
+  display.print("Confirm ");
+  display.print(action);
+  display.println("?");
+  display.println("1. Yes");
+  display.println("2. No");
+  
+  display.display();
+  
+  // Wait for user input (implement your own input handling here)
+  // Return true if "Yes" is selected, false otherwise
+  int userInput = getUserInput();
+  return (userInput == 1);
+}
+
+void addToFavorites(int monsterIndex) {
+  if (favoriteCount < 10) {
+    favoriteMonsters[favoriteCount++] = monsters[monsterIndex];
+    displayPrompt("Added!");
+  } else {
+    displayPrompt("Favorites Full!");
+  }
+}
+
+void setFree(int monsterIndex) {
+  // Implement logic to remove the monster from the list
+  displayPrompt("Gone for good");
+}
+
+void displayPrompt(const char* message) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  
+  display.println(message);
+  display.display();
+  delay(2000); // Display the message for 2 seconds
+}
+
+int getUserInput() {
+  while (true) {
+    int clkState = digitalRead(CLK_PIN);
+    int dtState = digitalRead(DT_PIN);
+    bool buttonPressed = digitalRead(SW_PIN) == LOW;
+
+    if (clkState != lastClkState) {
+      if (dtState != clkState) {
+        return 1; // User selected "Yes"
+      } else {
+        return 2; // User selected "No"
+      }
+    }
+    lastClkState = clkState;
+
+    if (buttonPressed) {
+      return 1; // User selected "Yes" by pressing the button
+    }
+  }
+}
+
+void scrollText(const char* text) {
+  int textLength = strlen(text);
+  int displayWidth = SCREEN_WIDTH / 6; // Assuming each character is 6 pixels wide
+  int scrollPosition = 0;
+
+  while (scrollPosition < textLength) {
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(0, 0);
+
+    for (int i = 0; i < displayWidth; i++) {
+      if (scrollPosition + i < textLength) {
+        display.print(text[scrollPosition + i]);
+      }
+    }
+
+    display.display();
+    scrollPosition++;
+    delay(200); // Adjust scrolling speed
+  }
 }
